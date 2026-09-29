@@ -1,9 +1,14 @@
+import { GoogleGenAI, Type } from "@google/genai";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const gemini = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
 });
+
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 type Activity = {
   titolo: string;
@@ -25,6 +30,33 @@ function isActivity(value: unknown): value is Activity {
     Array.isArray(activity.cosa_serve) &&
     activity.cosa_serve.every((item) => typeof item === "string")
   );
+}
+
+function getApiErrorStatus(error: unknown) {
+  if (error && typeof error === "object" && "status" in error) {
+    return typeof error.status === "number" ? error.status : undefined;
+  }
+
+  return undefined;
+}
+
+async function withTransientRetry<T>(operation: () => Promise<T>) {
+  const transientStatuses = [429, 500, 503];
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      const status = getApiErrorStatus(error);
+      if (!transientStatuses.includes(status ?? 0) || attempt === 2) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    }
+  }
+
+  throw new Error("Generazione non riuscita dopo i tentativi disponibili.");
 }
 
 export async function POST(request: Request) {
@@ -57,22 +89,48 @@ export async function POST(request: Request) {
 - Ingredienti disponibili: ${ingredients.map((item) => String(item).trim()).join(", ")}`
       : "";
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "attivita",
-          strict: true,
-          schema: {
-            type: "object",
+    const prompt = `Proponi una sola attivita per questa richiesta:
+- Categoria: ${category.trim()}
+- Gruppo: ${group.trim()}
+- Budget: ${String(budget).trim()}${ingredientPrompt}
+
+La proposta deve essere adatta al numero e al tipo di persone indicati, rispettare il budget e includere istruzioni concrete. Se sono indicati ingredienti, usali come base principale dell’idea.`;
+    const systemInstruction =
+      "Sei un assistente brillante che propone attivita pratiche e realistiche. Rispondi sempre in italiano, con un tono ironico, giovane e leggero: fai sorridere senza diventare infantile o perdere chiarezza. Restituisci esclusivamente il JSON richiesto.";
+
+    const provider = process.env.AI_PROVIDER?.toLowerCase() ?? "gemini";
+    let content: string | undefined;
+
+    if (provider === "openai") {
+      if (!openai) {
+        throw new Error("OPENAI_API_KEY non configurata.");
+      }
+
+      const result = await withTransientRetry(() => openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemInstruction },
+          { role: "user", content: prompt },
+        ],
+        response_format: { type: "json_object" },
+      }));
+      content = result.choices[0]?.message.content ?? undefined;
+    } else {
+      const result = await withTransientRetry(() => gemini.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
             properties: {
-              titolo: { type: "string" },
-              descrizione: { type: "string" },
-              durata_stimata: { type: "string" },
+              titolo: { type: Type.STRING },
+              descrizione: { type: Type.STRING },
+              durata_stimata: { type: Type.STRING },
               cosa_serve: {
-                type: "array",
-                items: { type: "string" },
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
               },
             },
             required: [
@@ -81,29 +139,12 @@ export async function POST(request: Request) {
               "durata_stimata",
               "cosa_serve",
             ],
-            additionalProperties: false,
           },
         },
-      },
-      messages: [
-        {
-          role: "system",
-          content:
-            "Sei un assistente brillante che propone attivita pratiche e realistiche. Rispondi sempre in italiano, con un tono ironico, giovane e leggero: fai sorridere senza diventare infantile o perdere chiarezza. Restituisci esclusivamente il JSON richiesto.",
-        },
-        {
-          role: "user",
-          content: `Proponi una sola attivita per questa richiesta:
-- Categoria: ${category.trim()}
-- Gruppo: ${group.trim()}
-- Budget: ${String(budget).trim()}${ingredientPrompt}
+      }));
+      content = result.text;
+    }
 
-La proposta deve essere adatta al numero e al tipo di persone indicati, rispettare il budget e includere istruzioni concrete. Se sono indicati ingredienti, usali come base principale dell'idea.`,
-        },
-      ],
-    });
-
-    const content = completion.choices[0]?.message.content;
     if (!content) {
       return NextResponse.json(
         { error: "Il modello non ha restituito una proposta." },
@@ -122,9 +163,14 @@ La proposta deve essere adatta al numero e al tipo di persone indicati, rispetta
     return NextResponse.json(activity);
   } catch (error) {
     console.error("Errore nella generazione dell'attivita:", error);
+    const isUnavailable = getApiErrorStatus(error) === 503;
     return NextResponse.json(
-      { error: "Impossibile generare l'attivita." },
-      { status: 500 },
+      {
+        error: isUnavailable
+          ? "Il servizio AI e temporaneamente sovraccarico. Riprova tra poco."
+          : "Impossibile generare l'attivita.",
+      },
+      { status: isUnavailable ? 503 : 500 },
     );
   }
 }

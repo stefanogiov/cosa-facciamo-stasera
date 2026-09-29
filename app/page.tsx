@@ -13,6 +13,21 @@ interface IdeaResult {
   cosa_serve: string[];
 }
 
+function isIdeaResult(value: unknown): value is IdeaResult {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const idea = value as Record<string, unknown>;
+  return (
+    typeof idea.titolo === 'string' &&
+    typeof idea.descrizione === 'string' &&
+    typeof idea.durata_stimata === 'string' &&
+    Array.isArray(idea.cosa_serve) &&
+    idea.cosa_serve.every((item) => typeof item === 'string')
+  );
+}
+
 const optionClass = (selected: boolean) =>
   `flex items-center justify-center gap-2 rounded-xl border px-4 py-3 font-medium transition-all ${
     selected
@@ -55,13 +70,26 @@ export default function HomePage() {
           ingredients: mode === 'frigo' ? cleanedIngredients : undefined,
         }),
       });
-      const data = (await response.json()) as IdeaResult | { error?: string };
-
-      if (!response.ok) {
-        throw new Error('error' in data ? data.error : 'Errore API');
+      let data: unknown = null;
+      try {
+        data = await response.json();
+      } catch {
+        // Gestisce risposte vuote o non JSON restituite dal server.
       }
 
-      const idea = data as IdeaResult;
+      if (!response.ok) {
+        const message =
+          data && typeof data === 'object' && 'error' in data && typeof data.error === 'string'
+            ? data.error
+            : `Errore del server (${response.status}).`;
+        throw new Error(message);
+      }
+
+      if (!isIdeaResult(data)) {
+        throw new Error('Il server ha restituito una risposta non valida.');
+      }
+
+      const idea = data;
       setResult(idea);
       setHistory((previousHistory) => [idea, ...previousHistory].slice(0, 3));
     } catch (requestError) {
