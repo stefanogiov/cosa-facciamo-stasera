@@ -38,7 +38,7 @@ const optionClass = (selected: boolean, compact = false) =>
   }`;
 
 export default function HomePage() {
-  const [mode, setMode] = useState<'mood' | 'frigo'>('mood');
+  const [mode, setMode] = useState<'mood' | 'ricette'>('mood');
   const [category, setCategory] = useState<'casa' | 'fuori'>('casa');
   const [group, setGroup] = useState<'solo' | 'coppia' | 'amici'>('coppia');
   const [budget, setBudget] = useState<'gratis' | 'economico' | 'top'>('gratis');
@@ -55,7 +55,7 @@ export default function HomePage() {
     setError(null);
 
     const cleanedIngredients = ingredients.map((ingredient) => ingredient.trim()).filter(Boolean);
-    if (mode === 'frigo' && cleanedIngredients.length !== 3) {
+    if (mode === 'ricette' && cleanedIngredients.length !== 3) {
       setError('Inserisci esattamente 3 ingredienti.');
       setLoading(false);
       return;
@@ -69,7 +69,8 @@ export default function HomePage() {
           category,
           group,
           budget,
-          ingredients: mode === 'frigo' ? cleanedIngredients : undefined,
+          mode: mode === 'ricette' ? 'recipe' : 'activity',
+          ingredients: mode === 'ricette' ? cleanedIngredients : undefined,
         }),
       });
       let data: unknown = null;
@@ -146,7 +147,7 @@ export default function HomePage() {
             <div className="space-y-7">
               <div className="grid grid-cols-2 rounded-xl border border-slate-800 bg-slate-950/50 p-1" role="tablist" aria-label="Modalita di generazione">
                 <button type="button" role="tab" aria-selected={mode === 'mood'} onClick={() => setMode('mood')} className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${mode === 'mood' ? 'bg-amber-400 text-slate-950' : 'text-slate-400 hover:text-slate-200'}`}>Scegli il mood</button>
-                <button type="button" role="tab" aria-selected={mode === 'frigo'} onClick={() => setMode('frigo')} className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${mode === 'frigo' ? 'bg-amber-400 text-slate-950' : 'text-slate-400 hover:text-slate-200'}`}>Svuota-frigo</button>
+                <button type="button" role="tab" aria-selected={mode === 'ricette'} onClick={() => setMode('ricette')} className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${mode === 'ricette' ? 'bg-amber-400 text-slate-950' : 'text-slate-400 hover:text-slate-200'}`}>Svuota-frigo</button>
               </div>
 
               {mode === 'mood' ? <>
@@ -168,7 +169,7 @@ export default function HomePage() {
               </fieldset>
               </> : (
                 <fieldset>
-                  <legend className="mb-3 text-sm font-semibold text-slate-200">Cosa hai in frigo?</legend>
+                  <legend className="mb-3 text-sm font-semibold text-slate-200">Scegli 3 ingredienti</legend>
                   <div className="space-y-3">
                     {ingredients.map((ingredient, index) => (
                       <input
@@ -200,7 +201,7 @@ export default function HomePage() {
                 className="flex w-full items-center justify-center gap-3 rounded-xl bg-amber-400 px-5 py-4 font-bold text-slate-950 transition hover:bg-amber-300 disabled:cursor-wait disabled:opacity-60"
               >
                 {loading ? <span className="animate-spin">↻</span> : <Icon symbol="✦" />}
-                {loading ? 'Generazione idea...' : 'Sorprendimi!'}
+                {loading ? (mode === 'ricette' ? 'Creo la ricetta...' : 'Generazione idea...') : (mode === 'ricette' ? 'Genera ricetta' : 'Sorprendimi!')}
               </button>
             </div>
 
