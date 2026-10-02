@@ -92,13 +92,16 @@ export async function POST(request: Request) {
       ? `
 - Ingredienti disponibili: ${ingredients.map((item) => String(item).trim()).join(", ")}`
       : "";
+    const creativeSeed = Math.random().toString(36).slice(2, 8);
 
     const prompt = `Proponi una sola attivita per questa richiesta:
 - Categoria: ${category.trim()}
 - Gruppo: ${group.trim()}
 - Budget: ${String(budget).trim()}${ingredientPrompt}
 
-La proposta deve essere adatta al numero e al tipo di persone indicati, rispettare il budget e includere istruzioni concrete. Se sono indicati ingredienti, usali come base principale dell’idea.`;
+La proposta deve essere adatta al numero e al tipo di persone indicati, rispettare il budget e includere istruzioni concrete. Se sono indicati ingredienti, usali come base principale dell’idea.
+Punta su una proposta varia e coerente con la richiesta: alterna esperienze culturali e di intrattenimento come cinema, teatro, mostre o concerti, attività all’aperto come picnic, passeggiate o sport, idee conviviali come cena a casa o aperitivo, e format più interattivi come laboratori, sfide a squadre, giochi investigativi o mini-competizioni. Non aggiungere elementi costosi o difficili da organizzare e non proporre sempre lo stesso tipo di attività.
+Seme creativo per questa richiesta: ${creativeSeed}. Usalo per scegliere un’angolazione diversa dalle risposte precedenti.`;
     const systemInstruction =
       "Sei un assistente brillante che propone attivita pratiche e realistiche. Rispondi sempre in italiano, con un tono ironico, giovane e leggero: fai sorridere senza diventare infantile o perdere chiarezza. Restituisci esclusivamente il JSON richiesto.";
 
