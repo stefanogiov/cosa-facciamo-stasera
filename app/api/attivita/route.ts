@@ -66,15 +66,17 @@ async function withTransientRetry<T>(operation: () => Promise<T>) {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
-    const { category, group, budget, ingredients } = body;
+    const { category, group, budget, ingredients, mode } = body;
+    const requestMode = mode === "recipe" ? "recipe" : "activity";
 
-    if (
-      typeof category !== "string" ||
-      !category.trim() ||
-      typeof group !== "string" ||
-      !group.trim() ||
-      (typeof budget !== "string" && typeof budget !== "number")
-    ) {
+    const hasValidActivityOptions =
+      typeof category === "string" &&
+      category.trim() &&
+      typeof group === "string" &&
+      group.trim() &&
+      (typeof budget === "string" || typeof budget === "number");
+
+    if (requestMode === "activity" && !hasValidActivityOptions) {
       return NextResponse.json(
         { error: "category, group e budget sono obbligatori." },
         { status: 400 },
@@ -92,18 +94,26 @@ export async function POST(request: Request) {
       ? `
 - Ingredienti disponibili: ${ingredients.map((item) => String(item).trim()).join(", ")}`
       : "";
+    const categoryText = typeof category === "string" ? category.trim() : "";
+    const groupText = typeof group === "string" ? group.trim() : "";
+    const budgetText = typeof budget === "string" || typeof budget === "number" ? String(budget).trim() : "";
     const creativeSeed = Math.random().toString(36).slice(2, 8);
 
-    const prompt = `Proponi una sola attivita per questa richiesta:
-- Categoria: ${category.trim()}
-- Gruppo: ${group.trim()}
-- Budget: ${String(budget).trim()}${ingredientPrompt}
+        const prompt = requestMode === "recipe"
+      ? `Proponi una sola ricetta usando come base principale tutti e tre gli ingredienti indicati:
+    - Ingredienti disponibili: ${ingredients?.map((item) => String(item).trim()).join(", ")}
+
+    La ricetta deve essere concreta, appetitosa e realizzabile con strumenti comuni. Indica nella descrizione i passaggi essenziali in ordine, specifica una durata realistica e usa "cosa_serve" per elencare solo eventuali ingredienti di base o strumenti aggiuntivi indispensabili. Non proporre una semplice insalata o una combinazione improvvisata se puoi creare un piatto più interessante.`
+      : `Proponi una sola attivita per questa richiesta:
+- Categoria: ${categoryText}
+- Gruppo: ${groupText}
+- Budget: ${budgetText}${ingredientPrompt}
 
 La proposta deve essere adatta al numero e al tipo di persone indicati, rispettare il budget e includere istruzioni concrete. Se sono indicati ingredienti, usali come base principale dell’idea.
 Punta su una proposta varia e coerente con la richiesta: alterna esperienze culturali e di intrattenimento come cinema, teatro, mostre o concerti, attività all’aperto come picnic, passeggiate o sport, idee conviviali come cena a casa o aperitivo, e format più interattivi come laboratori, sfide a squadre, giochi investigativi o mini-competizioni. Non aggiungere elementi costosi o difficili da organizzare e non proporre sempre lo stesso tipo di attività.
-Seme creativo per questa richiesta: ${creativeSeed}. Usalo per scegliere un’angolazione diversa dalle risposte precedenti.`;
+    Seme creativo per questa richiesta: ${creativeSeed}. Usalo per scegliere un’angolazione diversa dalle risposte precedenti.`;
     const systemInstruction =
-      "Sei un assistente brillante che propone attivita pratiche e realistiche. Rispondi sempre in italiano, con un tono ironico, giovane e leggero: fai sorridere senza diventare infantile o perdere chiarezza. Restituisci esclusivamente il JSON richiesto.";
+      "Sei un assistente brillante che propone attivita o ricette pratiche e realistiche. Rispondi sempre in italiano, con un tono ironico, giovane e leggero: fai sorridere senza diventare infantile o perdere chiarezza. Restituisci esclusivamente il JSON richiesto.";
 
     if (!openai) {
       throw new Error("OPENAI_API_KEY non configurata.");

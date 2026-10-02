@@ -68,7 +68,7 @@ export default function HomePage() {
         body: JSON.stringify({
           category,
           group,
-          budget,
+          ...(mode === 'mood' ? { budget } : {}),
           mode: mode === 'ricette' ? 'recipe' : 'activity',
           ingredients: mode === 'ricette' ? cleanedIngredients : undefined,
         }),
@@ -185,14 +185,16 @@ export default function HomePage() {
                 </fieldset>
               )}
 
-              <fieldset>
-                <legend className="mb-3 text-sm font-semibold text-slate-200">Budget</legend>
-                <div className="grid grid-cols-3 gap-2">
-                  <button type="button" onClick={() => setBudget('gratis')} className={optionClass(budget === 'gratis', true)}><Icon symbol="○" /> Gratis</button>
-                  <button type="button" onClick={() => setBudget('economico')} className={optionClass(budget === 'economico', true)}><Icon symbol="▣" /> Economico</button>
-                  <button type="button" onClick={() => setBudget('top')} className={optionClass(budget === 'top', true)}><Icon symbol="€" /> Top</button>
-                </div>
-              </fieldset>
+              {mode === 'mood' && (
+                <fieldset>
+                  <legend className="mb-3 text-sm font-semibold text-slate-200">Budget</legend>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button type="button" onClick={() => setBudget('gratis')} className={optionClass(budget === 'gratis', true)}><Icon symbol="○" /> Gratis</button>
+                    <button type="button" onClick={() => setBudget('economico')} className={optionClass(budget === 'economico', true)}><Icon symbol="▣" /> Economico</button>
+                    <button type="button" onClick={() => setBudget('top')} className={optionClass(budget === 'top', true)}><Icon symbol="€" /> Top</button>
+                  </div>
+                </fieldset>
+              )}
 
               <button
                 type="button"
