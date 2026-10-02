@@ -28,8 +28,10 @@ function isIdeaResult(value: unknown): value is IdeaResult {
   );
 }
 
-const optionClass = (selected: boolean) =>
-  `flex items-center justify-center gap-2 rounded-xl border px-4 py-3 font-medium transition-all ${
+const optionClass = (selected: boolean, compact = false) =>
+  `flex items-center justify-center rounded-xl border py-3 font-medium transition-all ${
+    compact ? 'gap-1 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm' : 'gap-2 px-4' 
+  } ${
     selected
       ? 'border-amber-400 bg-amber-400/15 text-amber-200 shadow-lg shadow-amber-950/30'
       : 'border-slate-700 bg-slate-900/70 text-slate-400 hover:border-slate-500 hover:bg-slate-800'
@@ -125,7 +127,6 @@ export default function HomePage() {
               Stasera
             </span>
           </div>
-          <span className="text-2xl" aria-hidden="true">🎲</span>
         </header>
 
         <section className="grid flex-1 gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
@@ -186,9 +187,9 @@ export default function HomePage() {
               <fieldset>
                 <legend className="mb-3 text-sm font-semibold text-slate-200">Budget</legend>
                 <div className="grid grid-cols-3 gap-2">
-                  <button type="button" onClick={() => setBudget('gratis')} className={optionClass(budget === 'gratis')}><Icon symbol="○" /> Gratis</button>
-                  <button type="button" onClick={() => setBudget('economico')} className={optionClass(budget === 'economico')}><Icon symbol="▣" /> Economico</button>
-                  <button type="button" onClick={() => setBudget('top')} className={optionClass(budget === 'top')}><Icon symbol="€" /> Top</button>
+                  <button type="button" onClick={() => setBudget('gratis')} className={optionClass(budget === 'gratis', true)}><Icon symbol="○" /> Gratis</button>
+                  <button type="button" onClick={() => setBudget('economico')} className={optionClass(budget === 'economico', true)}><Icon symbol="▣" /> Economico</button>
+                  <button type="button" onClick={() => setBudget('top')} className={optionClass(budget === 'top', true)}><Icon symbol="€" /> Top</button>
                 </div>
               </fieldset>
 
