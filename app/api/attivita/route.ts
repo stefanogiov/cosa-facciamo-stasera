@@ -1,10 +1,5 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
-
-const gemini = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
 
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -40,6 +35,15 @@ function getApiErrorStatus(error: unknown) {
   return undefined;
 }
 
+function isQuotaExceeded(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const apiError = error as { status?: unknown; code?: unknown };
+  return apiError.status === 429 && apiError.code === "insufficient_quota";
+}
+
 async function withTransientRetry<T>(operation: () => Promise<T>) {
   const transientStatuses = [429, 500, 503];
 
@@ -48,7 +52,7 @@ async function withTransientRetry<T>(operation: () => Promise<T>) {
       return await operation();
     } catch (error) {
       const status = getApiErrorStatus(error);
-      if (!transientStatuses.includes(status ?? 0) || attempt === 2) {
+      if (isQuotaExceeded(error) || !transientStatuses.includes(status ?? 0) || attempt === 2) {
         throw error;
       }
 
@@ -98,39 +102,30 @@ La proposta deve essere adatta al numero e al tipo di persone indicati, rispetta
     const systemInstruction =
       "Sei un assistente brillante che propone attivita pratiche e realistiche. Rispondi sempre in italiano, con un tono ironico, giovane e leggero: fai sorridere senza diventare infantile o perdere chiarezza. Restituisci esclusivamente il JSON richiesto.";
 
-    const provider = process.env.AI_PROVIDER?.toLowerCase() ?? "gemini";
-    let content: string | undefined;
+    if (!openai) {
+      throw new Error("OPENAI_API_KEY non configurata.");
+    }
 
-    if (provider === "openai") {
-      if (!openai) {
-        throw new Error("OPENAI_API_KEY non configurata.");
-      }
-
-      const result = await withTransientRetry(() => openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemInstruction },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
-      }));
-      content = result.choices[0]?.message.content ?? undefined;
-    } else {
-      const result = await withTransientRetry(() => gemini.models.generateContent({
-        model: "gemini-3.8-flash",
-        contents: prompt,
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
+    const result = await withTransientRetry(() => openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: prompt },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "attivita_response",
+          strict: true,
+          schema: {
+            type: "object",
             properties: {
-              titolo: { type: Type.STRING },
-              descrizione: { type: Type.STRING },
-              durata_stimata: { type: Type.STRING },
+              titolo: { type: "string" },
+              descrizione: { type: "string" },
+              durata_stimata: { type: "string" },
               cosa_serve: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
+                type: "array",
+                items: { type: "string" },
               },
             },
             required: [
@@ -139,11 +134,12 @@ La proposta deve essere adatta al numero e al tipo di persone indicati, rispetta
               "durata_stimata",
               "cosa_serve",
             ],
+            additionalProperties: false,
           },
         },
-      }));
-      content = result.text;
-    }
+      },
+    }));
+    const content = result.choices[0]?.message.content ?? undefined;
 
     if (!content) {
       return NextResponse.json(
@@ -163,6 +159,16 @@ La proposta deve essere adatta al numero e al tipo di persone indicati, rispetta
     return NextResponse.json(activity);
   } catch (error) {
     console.error("Errore nella generazione dell'attivita:", error);
+    if (isQuotaExceeded(error)) {
+      return NextResponse.json(
+        {
+          error:
+            "Il servizio ha raggiunto il limite massimo di richieste disponibili per questo mese.",
+        },
+        { status: 429 },
+      );
+    }
+
     const isUnavailable = getApiErrorStatus(error) === 503;
     return NextResponse.json(
       {
