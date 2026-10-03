@@ -1,0 +1,23 @@
+# Dipendenze
+node_modules/
+/.pnp
+.pnp.js
+
+# Build di Next.js
+/.next/
+/out/
+/build
+
+# File di ambiente con chiavi segrete (FONDAMENTALE)
+.env
+.env.local
+.env*.local
+
+# Log di debug
+*.log
+npm-debug.log*
+
+# File di sistema e editor
+.DS_Store
+.vscode/
+.idea/

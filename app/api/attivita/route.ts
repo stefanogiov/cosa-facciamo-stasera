@@ -83,25 +83,36 @@ export async function POST(request: Request) {
       );
     }
 
-    if (ingredients !== undefined && (!Array.isArray(ingredients) || ingredients.length !== 3 || ingredients.some((item) => typeof item !== "string" || !item.trim()))) {
+        if (
+      requestMode === "recipe" &&
+      (!Array.isArray(ingredients) ||
+        ingredients.length < 2 ||
+        ingredients.length > 5 ||
+        ingredients.some((item) => typeof item !== "string" || !item.trim()))
+    ) {
       return NextResponse.json(
-        { error: "Inserisci esattamente 3 ingredienti validi." },
+        { error: "Inserisci almeno 2 ingredienti validi, fino a un massimo di 5." },
         { status: 400 },
       );
     }
 
-    const ingredientPrompt = Array.isArray(ingredients)
+
+        const recipeIngredients = Array.isArray(ingredients) ? ingredients as string[] : [];
+    const ingredientPrompt = recipeIngredients.length > 0
       ? `
-- Ingredienti disponibili: ${ingredients.map((item) => String(item).trim()).join(", ")}`
+- Ingredienti disponibili: ${recipeIngredients.map((item) => item.trim()).join(", ")}`
       : "";
+
     const categoryText = typeof category === "string" ? category.trim() : "";
     const groupText = typeof group === "string" ? group.trim() : "";
     const budgetText = typeof budget === "string" || typeof budget === "number" ? String(budget).trim() : "";
     const creativeSeed = Math.random().toString(36).slice(2, 8);
 
         const prompt = requestMode === "recipe"
-      ? `Proponi una sola ricetta usando come base principale tutti e tre gli ingredienti indicati:
-    - Ingredienti disponibili: ${ingredients?.map((item) => String(item).trim()).join(", ")}
+            ? `Proponi una sola ricetta usando come base principale tutti gli ingredienti indicati:
+        - Ingredienti disponibili: ${recipeIngredients.map((item) => item.trim()).join(", ")}
+
+
 
     La ricetta deve essere concreta, appetitosa e realizzabile con strumenti comuni. Indica nella descrizione i passaggi essenziali in ordine, specifica una durata realistica e usa "cosa_serve" per elencare solo eventuali ingredienti di base o strumenti aggiuntivi indispensabili. Non proporre una semplice insalata o una combinazione improvvisata se puoi creare un piatto più interessante.`
       : `Proponi una sola attivita per questa richiesta:

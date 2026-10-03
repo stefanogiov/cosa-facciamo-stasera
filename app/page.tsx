@@ -42,7 +42,7 @@ export default function HomePage() {
   const [category, setCategory] = useState<'casa' | 'fuori'>('casa');
   const [group, setGroup] = useState<'solo' | 'coppia' | 'amici'>('coppia');
   const [budget, setBudget] = useState<'gratis' | 'economico' | 'top'>('gratis');
-  const [ingredients, setIngredients] = useState(['', '', '']);
+  const [ingredients, setIngredients] = useState(['', '', '', '', '']);
   const [result, setResult] = useState<IdeaResult | null>(null);
   const [history, setHistory] = useState<IdeaResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -55,8 +55,8 @@ export default function HomePage() {
     setError(null);
 
     const cleanedIngredients = ingredients.map((ingredient) => ingredient.trim()).filter(Boolean);
-    if (mode === 'ricette' && cleanedIngredients.length !== 3) {
-      setError('Inserisci esattamente 3 ingredienti.');
+        if (mode === 'ricette' && (cleanedIngredients.length < 2 || cleanedIngredients.length > 5)) {
+      setError('Inserisci almeno 2 ingredienti (puoi aggiungerne fino a 5).');
       setLoading(false);
       return;
     }
@@ -169,7 +169,7 @@ export default function HomePage() {
               </fieldset>
               </> : (
                 <fieldset>
-                  <legend className="mb-3 text-sm font-semibold text-slate-200">Scegli 3 ingredienti</legend>
+                                    <legend className="mb-3 text-sm font-semibold text-slate-200">Ingredienti <span className="font-normal text-slate-400">(almeno 2, fino a 5)</span></legend>
                   <div className="space-y-3">
                     {ingredients.map((ingredient, index) => (
                       <input
@@ -177,15 +177,23 @@ export default function HomePage() {
                         type="text"
                         value={ingredient}
                         onChange={(event) => setIngredients((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))}
-                        placeholder={`Ingrediente ${index + 1}`}
+                        placeholder={`Ingrediente ${index + 1}${index < 2 ? ' (obbligatorio)' : ' (facoltativo)'}`}
+                        aria-label={`Ingrediente ${index + 1}${index < 2 ? ', obbligatorio' : ', facoltativo'}`}
                         className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-slate-100 outline-none placeholder:text-slate-600 focus:border-amber-400"
                       />
                     ))}
                   </div>
-                </fieldset>
+                                </fieldset>
+              )}
+
+              {mode === 'ricette' && (
+                                <p className="-mt-4 rounded-xl border border-amber-400/50 bg-amber-400/10 px-4 py-3 text-sm leading-relaxed text-amber-200 shadow-lg shadow-amber-950/20">
+                  <span className="font-bold">Nota poco solenne:</span> le ricette sono generate dall’AI. Noi ci mettiamo la fantasia, ma non ci assumiamo responsabilità se la cucina si trasforma in un laboratorio. Controlla sempre cottura e allergeni!
+                </p>
               )}
 
               {mode === 'mood' && (
+
                 <fieldset>
                   <legend className="mb-3 text-sm font-semibold text-slate-200">Budget</legend>
                   <div className="grid grid-cols-3 gap-2">
